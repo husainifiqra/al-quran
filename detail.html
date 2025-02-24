@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detail Surah Al-Quran</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <style>
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .error-container {
+            text-align: center;
+            padding: 40px 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+        .arabic-text {
+            font-family: 'Traditional Arabic', serif;
+            font-size: 2em;
+            direction: rtl;
+            line-height: 2;
+            margin: 20px 0;
+            text-align: right;
+        }
+        .verse-container {
+            border-bottom: 1px solid #eee;
+            padding: 20px 0;
+        }
+        .verse-number {
+            background-color: #f8f9fa;
+            padding: 5px 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .translation {
+            color: #666;
+            margin-top: 10px;
+        }
+        .bismillah {
+            text-align: center;
+            font-size: 2em;
+            margin: 20px 0;
+            font-family: 'Traditional Arabic', serif;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="mb-4">
+            <a href="surah.html" class="btn btn-outline-primary">&larr; Kembali ke Daftar Surah</a>
+        </div>
+        
+        <h1 class="text-center mb-4">Detail Surah Al-Quran</h1>
+        
+        <div id="loading" class="loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+            <p class="mt-2">Memuat data...</p>
+        </div>
+
+        <div id="error-container" class="error-container">
+            <div class="icon">⚠️</div>
+            <div class="message"></div>
+            <button class="btn btn-primary retry-btn" onclick="loadSurahDetail()">Coba Lagi</button>
+            <div class="mt-3">
+                <a href="surah.html" class="btn btn-outline-secondary">Kembali ke Daftar Surah</a>
+            </div>
+        </div>
+
+        <div id="surah-detail" class="mt-4"></div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            const BASE_URL = 'https://api.quran.gading.dev';
+            const $loading = $('#loading');
+            const $errorContainer = $('#error-container');
+            const $surahDetail = $('#surah-detail');
+
+            window.loadSurahDetail = async function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const surahId = urlParams.get('id');
+                
+                if (!surahId) {
+                    showError('Nomor surah tidak ditemukan. Silakan pilih surah dari daftar.');
+                    return;
+                }
+
+                showLoading();
+
+                try {
+                    const response = await fetch(`${BASE_URL}/surah/${surahId}`);
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Terjadi kesalahan saat mengambil data');
+                    }
+
+                    if (!data || !data.data) {
+                        throw new Error('Data surah tidak valid');
+                    }
+
+                    renderSurahDetail(data.data);
+                } catch (error) {
+                    console.error('Error fetching surah:', error);
+                    showError(error.message || 'Terjadi kesalahan saat memuat data surah');
+                } finally {
+                    hideLoading();
+                }
+            };
+
+            function showLoading() {
+                $loading.show();
+                $errorContainer.hide();
+                $surahDetail.hide();
+            }
+
+            function hideLoading() {
+                $loading.hide();
+            }
+
+            function showError(message) {
+                $errorContainer.find('.message').text(message);
+                $errorContainer.show();
+                $surahDetail.hide();
+            }
+
+            function renderSurahDetail(surah) {
+                let detailHtml = `
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h2 class="card-title text-center">${surah.name?.transliteration?.id || ''} (${surah.name?.short || ''})</h2>
+                            <h6 class="card-subtitle mb-2 text-muted text-center">${surah.name?.translation?.id || ''}</h6>
+                            
+                            <div class="text-center mb-4">
+                                <div class="badge badge-primary">Jumlah Ayat: ${surah.numberOfVerses || 0}</div>
+                                <div class="badge badge-info ml-2">Tempat Turun: ${surah.revelation?.id || ''}</div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <h5>Deskripsi:</h5>
+                                <p class="card-text">${surah.tafsir?.id || 'Tidak ada deskripsi'}</p>
+                            </div>`;
+
+                if (surah.audio?.primary) {
+                    detailHtml += `
+                        <div class="mb-4">
+                            <h5>Audio Surah:</h5>
+                            <audio controls class="w-100" controlsList="nodownload">
+                                <source src="${surah.audio.primary}" type="audio/mpeg">
+                                Browser Anda tidak mendukung pemutaran audio.
+                            </audio>
+                        </div>`;
+                }
+
+                detailHtml += `</div></div>`;
+
+                if (surah.number !== 9) {
+                    detailHtml += `
+                        <div class="bismillah">
+                            بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+                        </div>`;
+                }
+
+                if (surah.verses && surah.verses.length > 0) {
+                    detailHtml += `
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Ayat-ayat:</h5>`;
+                    
+                    surah.verses.forEach(verse => {
+                        detailHtml += `
+                            <div class="verse-container">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="verse-number">${verse.number?.inSurah || ''}</span>
+                                </div>
+                                <div class="arabic-text">${verse.text?.arab || ''}</div>
+                                <div class="translation">
+                                    <em class="text-muted">${verse.text?.transliteration?.en || ''}</em>
+                                    <p class="mt-2">${verse.translation?.id || ''}</p>
+                                </div>
+                            </div>`;
+                    });
+                    
+                    detailHtml += `</div></div>`;
+                }
+
+                $surahDetail.html(detailHtml).show();
+                document.title = `Surah ${surah.name?.transliteration?.id || ''} - Detail Surah Al-Quran`;
+            }
+
+            // Load surah detail when page loads
+            loadSurahDetail();
+        });
+    </script>
+</body>
+</html>
